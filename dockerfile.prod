@@ -33,6 +33,8 @@ RUN npm ci -f --only=production && npm cache clean --force
 # crear la imagen final de docker
 FROM node:21-alpine3.19 AS prod
 
+RUN echo "database_url ::: $ORDERS_DATABASE_URL";
+
 WORKDIR /usr/src/app
 
 COPY --from=build /usr/src/app/node_modules ./node_modules
