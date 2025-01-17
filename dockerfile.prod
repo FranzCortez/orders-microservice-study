@@ -1,0 +1,51 @@
+# Dependencias
+
+FROM node:21-alpine3.19 AS deps
+
+WORKDIR /usr/src/app
+
+COPY package*.json ./
+
+RUN npm install
+
+# Builder - crear app
+FROM node:21-alpine3.19 AS build
+
+WORKDIR /usr/src/app
+
+# Copiar de deps los node_modules
+COPY --from=deps /usr/src/app/node_modules ./node_modules
+
+# copiar todo el codigo fuente
+COPY . .
+
+ARG ORDERS_DATABASE_URL
+ENV DATABASE_URL=$ORDERS_DATABASE_URL
+
+# RUN npm run test
+RUN npx prisma migrate deploy
+RUN npx prisma generate
+
+RUN npm run build
+
+RUN npm ci -f --only=production && npm cache clean --force
+
+# crear la imagen final de docker
+FROM node:21-alpine3.19 AS prod
+
+WORKDIR /usr/src/app
+
+COPY --from=build /usr/src/app/node_modules ./node_modules
+
+# copiar el dist
+COPY --from=build /usr/src/app/dist ./dist
+
+ENV NODE_ENV=production
+
+USER node
+
+EXPOSE 3000
+
+CMD [ "node", "dist/main.js" ]
+
+#docker build -f .\dockerfile.prod -t client-gateway .
